@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  php:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        UID: ${UID}
+        GID: ${GID}
+    container_name: payment-gateway-php
+    volumes:
+      - .:/var/www/html
+    ports:
+      - "9000:9000"
+
+  web:
+    image: nginx:latest
+    container_name: payment-gateway-web
+    volumes:
+      - .:/var/www/html
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "8000:80"
+    depends_on:
+      - php
+
+  db:
+    image: postgres:latest
+    container_name: payment-gateway-db
+    environment:
+      POSTGRES_USER: symfony
+      POSTGRES_PASSWORD: symfony
+      POSTGRES_DB: payment_gateway
+    ports:
+      - "5432:5432"
+
+volumes:
+  db_data:

@@ -15,7 +15,8 @@ RUN apt-get update && apt-get install -y \
     opcache \
     mbstring \
     zip \
-    xml
+    xml \
+    intl
 
 # Устанавливаем Composer
 COPY --from=composer:2.8.4 /usr/bin/composer /usr/bin/composer

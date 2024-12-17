@@ -4,13 +4,14 @@ declare(strict_types=1);
 
 namespace App\Command;
 
+use App\Dto\TransactionData;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Input\InputOption;
 use Symfony\Component\Console\Output\OutputInterface;
-use Symfony\Component\Console\Style\SymfonyStyle;
+use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 #[AsCommand(
     name: 'app:example',
@@ -18,6 +19,12 @@ use Symfony\Component\Console\Style\SymfonyStyle;
 )]
 class CliCommand extends Command
 {
+    public function __construct(
+        readonly private ValidatorInterface $validator
+    ) {
+        parent::__construct();
+    }
+
     protected function configure(): void
     {
         $this
@@ -39,40 +46,37 @@ class CliCommand extends Command
             return Command::INVALID;
         }
 
-        $requiredFields = ['amount', 'currency', 'card_number', 'card_exp_year', 'card_exp_month', 'card_cvv'];
-        foreach ($requiredFields as $field) {
-            if (!$input->getOption($field)) {
-                $output->writeln("<error>Missing required option: --$field</error>");
-                return Command::FAILURE;
+        $dto = new TransactionData();
+        $dto->amount = $input->getOption('amount');
+        $dto->currency = $input->getOption('currency');
+        $dto->cardNumber = $input->getOption('card_number');
+        $dto->cardExpYear = $input->getOption('card_exp_year');
+        $dto->cardExpMonth = $input->getOption('card_exp_month');
+        $dto->cardCvv = $input->getOption('card_cvv');
+
+        $errors = $this->validator->validate($dto);
+        if (count($errors) > 0) {
+            foreach ($errors as $error) {
+                $output->writeln("<error>{$error->getPropertyPath()}: {$error->getMessage()}</error>");
             }
+            return Command::FAILURE;
         }
 
-        // Формируем данные
-        $data = [
-            'amount' => $input->getOption('amount'),
-            'currency' => $input->getOption('currency'),
-            'card_number' => $input->getOption('card_number'),
-            'card_exp_year' => $input->getOption('card_exp_year'),
-            'card_exp_month' => $input->getOption('card_exp_month'),
-            'card_cvv' => $input->getOption('card_cvv'),
-        ];
-
-        // Заглушка для отправки запроса
-        $response = $this->sendRequestToSystem($system, $data);
+        $response = $this->sendRequestToSystem($system, $dto);
 
         $output->writeln(json_encode($response, JSON_PRETTY_PRINT));
+
         return Command::SUCCESS;
     }
 
-    private function sendRequestToSystem(string $system, array $data): array
+    private function sendRequestToSystem(string $system, TransactionData $dto): array
     {
-        // Заглушка для реального запроса
         return [
             'transaction_id' => uniqid('trx_', true),
             'date_of_creation' => date('Y-m-d H:i:s'),
-            'amount' => $data['amount'],
-            'currency' => $data['currency'],
-            'card_bin' => substr($data['card_number'], 0, 6),
+            'amount' => $dto->amount,
+            'currency' => $dto->currency,
+            'card_bin' => substr($dto->cardNumber, 0, 6),
             'system' => $system
         ];
     }

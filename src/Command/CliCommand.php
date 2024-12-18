@@ -21,7 +21,7 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 class CliCommand extends Command
 {
     public function __construct(
-        readonly private ValidatorInterface    $validator,
+        readonly private ValidatorInterface $validator,
         readonly private ExternalSystemManager $externalSystemManager,
     ) {
         parent::__construct();

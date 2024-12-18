@@ -4,7 +4,8 @@ declare(strict_types=1);
 
 namespace App\Command;
 
-use App\Dto\TransactionData;
+use App\Service\ExternalSystemManager;
+use App\Service\ExternalSystemManager\RequestDto;
 use Symfony\Component\Console\Attribute\AsCommand;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
@@ -20,7 +21,8 @@ use Symfony\Component\Validator\Validator\ValidatorInterface;
 class CliCommand extends Command
 {
     public function __construct(
-        readonly private ValidatorInterface $validator
+        readonly private ValidatorInterface    $validator,
+        readonly private ExternalSystemManager $externalSystemManager,
     ) {
         parent::__construct();
     }
@@ -41,20 +43,25 @@ class CliCommand extends Command
     protected function execute(InputInterface $input, OutputInterface $output): int
     {
         $system = $input->getArgument('system');
-        if (!in_array($system, ['aci', 'shift4'])) {
-            $output->writeln('<error>Invalid system parameter. Use "aci" or "shift4".</error>');
+        if (!$this->externalSystemManager->isAvailable($system)) {
+            $output->writeln(
+                sprintf(
+                    '<error>Invalid system parameter. Available systems: %s.</error>',
+                    implode(', ', $this->externalSystemManager->getAvailableIdList())
+                )
+            );
             return Command::INVALID;
         }
 
-        $dto = new TransactionData();
-        $dto->amount = $input->getOption('amount');
-        $dto->currency = $input->getOption('currency');
-        $dto->cardNumber = $input->getOption('card_number');
-        $dto->cardExpYear = $input->getOption('card_exp_year');
-        $dto->cardExpMonth = $input->getOption('card_exp_month');
-        $dto->cardCvv = $input->getOption('card_cvv');
+        $requestDto = new RequestDto();
+        $requestDto->amount = $input->getOption('amount');
+        $requestDto->currency = $input->getOption('currency');
+        $requestDto->cardNumber = $input->getOption('card_number');
+        $requestDto->cardExpYear = $input->getOption('card_exp_year');
+        $requestDto->cardExpMonth = $input->getOption('card_exp_month');
+        $requestDto->cardCvv = $input->getOption('card_cvv');
 
-        $errors = $this->validator->validate($dto);
+        $errors = $this->validator->validate($requestDto);
         if (count($errors) > 0) {
             foreach ($errors as $error) {
                 $output->writeln("<error>{$error->getPropertyPath()}: {$error->getMessage()}</error>");
@@ -62,22 +69,10 @@ class CliCommand extends Command
             return Command::FAILURE;
         }
 
-        $response = $this->sendRequestToSystem($system, $dto);
+        $response = $this->externalSystemManager->process($system, $requestDto);
 
-        $output->writeln(json_encode($response, JSON_PRETTY_PRINT));
+        $output->writeln(json_encode($response->toArray(), JSON_PRETTY_PRINT));
 
         return Command::SUCCESS;
-    }
-
-    private function sendRequestToSystem(string $system, TransactionData $dto): array
-    {
-        return [
-            'transaction_id' => uniqid('trx_', true),
-            'date_of_creation' => date('Y-m-d H:i:s'),
-            'amount' => $dto->amount,
-            'currency' => $dto->currency,
-            'card_bin' => substr($dto->cardNumber, 0, 6),
-            'system' => $system
-        ];
     }
 }

@@ -2,11 +2,11 @@
 
 declare(strict_types=1);
 
-namespace App\Dto;
+namespace App\Service\ExternalSystemManager;
 
 use Symfony\Component\Validator\Constraints as Assert;
 
-class TransactionData
+class RequestDto
 {
     #[Assert\NotBlank(message: "Amount is required.")]
     #[Assert\Positive(message: "Amount must be a positive number.")]

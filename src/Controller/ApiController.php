@@ -4,11 +4,12 @@ declare(strict_types=1);
 
 namespace App\Controller;
 
-use App\Dto\TransactionData;
+use App\Service\ExternalSystemManager;
+use App\Service\ExternalSystemManager\RequestDto;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
-use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\HttpFoundation\Request;
+use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 
 class ApiController extends AbstractController
@@ -17,21 +18,26 @@ class ApiController extends AbstractController
     public function example(
         Request $request,
         string $system,
-        ValidatorInterface $validator
+        ValidatorInterface $validator,
+        ExternalSystemManager $externalSystemManager,
     ): JsonResponse {
-        if (!in_array($system, ['aci', 'shift4'])) {
-            return new JsonResponse(['error' => 'Invalid system parameter. Use "aci" or "shift4".'], 400);
+        if (!$externalSystemManager->isAvailable($system)) {
+            $error = sprintf(
+                'Invalid system parameter. Available systems: %s.',
+                implode(', ', $externalSystemManager->getAvailableIdList())
+            );
+            return new JsonResponse(['error' => $error], 400);
         }
 
-        $dto = new TransactionData();
-        $dto->amount = $request->query->get('amount');
-        $dto->currency = $request->query->get('currency');
-        $dto->cardNumber = $request->query->get('card_number');
-        $dto->cardExpYear = $request->query->get('card_exp_year');
-        $dto->cardExpMonth = $request->query->get('card_exp_month');
-        $dto->cardCvv = $request->query->get('card_cvv');
+        $requestDto = new RequestDto();
+        $requestDto->amount = $request->query->get('amount');
+        $requestDto->currency = $request->query->get('currency');
+        $requestDto->cardNumber = $request->query->get('card_number');
+        $requestDto->cardExpYear = $request->query->get('card_exp_year');
+        $requestDto->cardExpMonth = $request->query->get('card_exp_month');
+        $requestDto->cardCvv = $request->query->get('card_cvv');
 
-        $errors = $validator->validate($dto);
+        $errors = $validator->validate($requestDto);
         if (count($errors) > 0) {
             $errorMessages = [];
             foreach ($errors as $error) {
@@ -40,14 +46,8 @@ class ApiController extends AbstractController
             return new JsonResponse(['errors' => $errorMessages], 400);
         }
 
-        // Заглушка ответа
-        return new JsonResponse([
-            'transaction_id' => uniqid('trx_', true),
-            'date_of_creation' => date('Y-m-d H:i:s'),
-            'amount' => $dto->amount,
-            'currency' => $dto->currency,
-            'card_bin' => substr($dto->cardNumber, 0, 6),
-            'system' => $system
-        ]);
+        $response = $externalSystemManager->process($system, $requestDto);
+
+        return new JsonResponse($response->toArray());
     }
 }

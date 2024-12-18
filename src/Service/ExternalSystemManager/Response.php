@@ -8,8 +8,8 @@ readonly class Response
 {
     public function __construct(
         private string $transactionId,
-        private string $dateOfCreation,
-        private string $amount,
+        private int $dateOfCreation,
+        private float $amount,
         private string $currency,
         private string $cardBin,
         private string $system

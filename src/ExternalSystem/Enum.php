@@ -7,5 +7,5 @@ namespace App\ExternalSystem;
 enum Enum: string
 {
     case SHIFT4 = 'shift4';
-    case OPPWA = 'aci';
+    case ACI = 'aci';
 }

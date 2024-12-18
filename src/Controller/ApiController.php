@@ -46,7 +46,11 @@ class ApiController extends AbstractController
             return new JsonResponse(['errors' => $errorMessages], 400);
         }
 
-        $response = $externalSystemManager->process($system, $requestDto);
+        try {
+            $response = $externalSystemManager->process($system, $requestDto);
+        } catch (\Throwable $e) {
+            return new JsonResponse(['errors' => [$e->getMessage()]], 400);
+        }
 
         return new JsonResponse($response->toArray());
     }

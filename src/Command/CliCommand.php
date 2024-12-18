@@ -64,12 +64,22 @@ class CliCommand extends Command
         $errors = $this->validator->validate($requestDto);
         if (count($errors) > 0) {
             foreach ($errors as $error) {
-                $output->writeln("<error>{$error->getPropertyPath()}: {$error->getMessage()}</error>");
+                $output->writeln(sprintf(
+                    "<error>%s: %s</error>",
+                    $error->getPropertyPath(),
+                    $error->getMessage(),
+                ));
             }
             return Command::FAILURE;
         }
 
-        $response = $this->externalSystemManager->process($system, $requestDto);
+        try {
+            $response = $this->externalSystemManager->process($system, $requestDto);
+        } catch (\Throwable $e) {
+            $output->writeln(sprintf("<error>%s</error>", $e->getMessage()));
+
+            return Command::FAILURE;
+        }
 
         $output->writeln(json_encode($response->toArray(), JSON_PRETTY_PRINT));
 

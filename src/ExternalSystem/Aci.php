@@ -12,6 +12,26 @@ class Aci implements AdapterInterface
 {
     public function process(RequestDto $requestDto): Response
     {
+        $responseData = $this->useRequestMannerFromDoc($requestDto);
+
+        // todo: introduce AciResponse object for bettering maintainability
+        $responseArray = json_decode($responseData, true);
+
+        return new Response(
+            $responseArray['id'],
+            new \DateTime($responseArray['timestamp'])->getTimestamp(),
+            // todo: implement ValueObject for Amount, Currency and correct dealing with minor units
+            (float) $responseArray['amount'],
+            $responseArray['currency'],
+            $responseArray['card']['bin'],
+            ExternalSystemEnum::ACI->value,
+        );
+    }
+
+    private function useRequestMannerFromDoc(RequestDto $requestDto): string
+    {
+        // see: https://docs.oppwa.com/integrations/server-to-server
+
         $url = "https://eu-test.oppwa.com/v1/payments";
         $data = "entityId=8ac7a4c79394bdc801939736f17e063d" .
             sprintf("&amount=%s", $requestDto->amount) .
@@ -38,16 +58,6 @@ class Aci implements AdapterInterface
         }
         curl_close($ch);
 
-        $responseArray = json_decode($responseData, true);
-
-        return new Response(
-            $responseArray['id'],
-            new \DateTime($responseArray['timestamp'])->getTimestamp(),
-            // todo: implement ValueObject for Amount, Currency and correct dealing with minor units
-            (float) $responseArray['amount'],
-            $responseArray['currency'],
-            $responseArray['card']['bin'],
-            ExternalSystemEnum::ACI->value,
-        );
+        return $responseData;
     }
 }

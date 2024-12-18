@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Service;
 
+use App\ExternalSystem\Aci;
 use App\ExternalSystem\Enum as ExternalSystemEnum;
+use App\ExternalSystem\Exception;
 use App\ExternalSystem\Shift4;
 use App\Service\ExternalSystemManager\RequestDto;
 use App\Service\ExternalSystemManager\Response;
@@ -30,14 +32,8 @@ class ExternalSystemManager
     {
         return match ($systemId) {
             ExternalSystemEnum::SHIFT4->value => new Shift4()->process($requestDto),
-            default => new Response(
-                uniqid('trx_', true),
-                time(),
-                (float) $requestDto->amount,
-                $requestDto->currency,
-                substr($requestDto->cardNumber, 0, 6),
-                $systemId
-            ),
+            ExternalSystemEnum::ACI->value => new Aci()->process($requestDto),
+            default => throw new Exception(sprintf('Unknown systemId: %s', $systemId)),
         };
     }
 }
